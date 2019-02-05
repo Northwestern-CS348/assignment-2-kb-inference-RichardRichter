@@ -116,7 +116,9 @@ class KnowledgeBase(object):
            print("Invalid ask:", fact.statement)
            return []
 
-   def kb_retract(self, fact_or_rule):
+  
+            
+   def kb_retract(self, fact):
        """Retract a fact from the KB
 
        Args:
@@ -125,26 +127,54 @@ class KnowledgeBase(object):
        Returns:
            None
        """
-       printv("Retracting {!r}", 0, verbose, [fact_or_rule])
+       printv("Retracting {!r}", 0, verbose, fact)
        ####################################################
        # Student code goes here
-       if isinstance(fact_or_rule, Fact):
-           for x in self.facts:
-               if x == fact_or_rule:
-                   x.asserted = True
-                   if x.supported_by == []:
-                       self.facts.remove(x)
-                       for y in self.rules:
-                           for z in y.supports_facts:
-                               if z == x:
-                                   y.supports_facts.remove(x)
+       #
+       def rec_fun_fact(self, facter):
+           factual = self._get_fact(facter)
+           for x in factual.supports_facts:
+               for dd in x.supported_by:
+                   helper = dd[0][0]
+                   if helper == factual:
+                       x.supported_by.remove(dd)
+                       if x.asserted == False:
+                           if len(x.supported_by) == 0:
+                               self.kb_retract(x)
+           for y in factual.supports_rules:
+               for qq in y.supported_by:
+                   helper_a = qq[0][0]
+                   if helper_a == factual:
+                       y.supported_by.remove(qq)
+                       if y.asserted == False:
+                           if len(y.supported_by) == 0:
+                               ruler = self._get_rule(y)
+                               for potential_fact in ruler.supports_facts:
+                                   for qq in potential_fact.supported_by:
+                                       if qq[0][1] == ruler:
+                                           potential_fact.supported_by.remove(qq)
+                                       if len(potential_fact.supported_by) == 0:
+                                           self.kb_retract(potential_fact)
+                               self.rules.remove(ruler)
+           self.facts.remove(factual)
+
+       if not isinstance(fact,Fact):
+           return
        else:
-           for x in self.rules:
-               if x == fact_or_rule:
-                   x.asserted = True
+           working_fact = self._get_fact(fact)
+           if len(working_fact.supported_by) > 0:  
+               working_fact.asserted = False
+               return
+           else:
+               working_fact.asserted = False # check to see if this affects the fact in the kb
+               n_a_content = [None, None]
+               if working_fact.supports_facts == n_a_content:
+                   working_fact.supports_facts = []
+               rec_fun_fact(self, working_fact)
 
-      
 
+
+          
 class InferenceEngine(object):
    def fc_infer(self, fact, rule, kb):
        """Forward-chaining to infer new facts and rules
@@ -178,21 +208,23 @@ class InferenceEngine(object):
                    list_combinded.append(list_lhs)
                    list_combinded.append(rhs_helper)
                    inferred_rule = Rule(list_combinded)
-                   pairs = [(rule,fact)]
+                   pairs = [(fact,rule)]
                    inferred_rule.supported_by.append(pairs) #may need to look back at this
                    inferred_rule.asserted = False
+                   kb.kb_add(inferred_rule)
                    fact.supports_rules.append(inferred_rule)
                    rule.supports_rules.append(inferred_rule)
-                   kb.kb_add(inferred_rule)
+                   
                else: 
                    new_statement = instantiate(rule.rhs,see_bindings)
                    new_fact = Fact(new_statement)
-                   pairs = [(rule,fact)]
+                   pairs = [(fact,rule)]
                    new_fact.supported_by.append(pairs) #may need to change
                    new_fact.asserted = False
+                   kb.kb_add(new_fact)
                    fact.supports_facts.append(new_fact)
                    rule.supports_facts.append(new_fact)
-                   kb.kb_add(new_fact)
+                   
               
 #just becasue you retract something, doesnt mean that you remove it, if it has supports, you dont remove it, you do set the assert to false though
 #its alwyas being retracted, doesnt always have to be removed
