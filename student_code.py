@@ -162,6 +162,8 @@ class KnowledgeBase(object):
            return
        else:
            working_fact = self._get_fact(fact)
+           if working_fact == None:
+               return
            if len(working_fact.supported_by) > 0:  
                working_fact.asserted = False
                return
